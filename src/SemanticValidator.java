@@ -28,10 +28,31 @@ public class SemanticValidator {
                 result.diagnostics.add(new Diagnostic("SEMANTIC_UNKNOWN_COLUMN", "Columna no existe: " + col, new SourceSpan(1, 1)));
             }
         }
-        // TODO SERIE 2:
-        // Validar ast.where:
-        // - SEMANTIC_UNKNOWN_WHERE_COLUMN
-        // - SEMANTIC_TYPE_MISMATCH
-        // - TRACE|WHERE_TYPE_CHECK|<line>:<column>|<column>|<operator>|<literalType>
+
+        if (ast.where != null) {
+            validateWhere(ast.where, table, result);
+        }
+    }
+
+    private void validateWhere(ConditionChain where, Map<String, LiteralType> table, ValidationResult result) {
+        for (int i = 0; i < where.conditions.size(); i++) {
+            WhereCondition condition = where.conditions.get(i);
+            result.traces.add("TRACE|WHERE_TYPE_CHECK|" + condition.columnSpan.format() + "|" + condition.column + "|" + condition.operator + "|" + condition.literalType);
+
+            String columnName = condition.column.toLowerCase();
+            LiteralType columnType = table.get(columnName);
+            if (columnType == null) {
+                result.diagnostics.add(new Diagnostic("SEMANTIC_UNKNOWN_WHERE_COLUMN",
+                        "Columna no existe en WHERE: " + condition.column,
+                        condition.columnSpan));
+                continue;
+            }
+
+            if (condition.literalType != LiteralType.UNKNOWN && condition.literalType != columnType) {
+                result.diagnostics.add(new Diagnostic("SEMANTIC_TYPE_MISMATCH",
+                        "Tipo incompatible en WHERE: " + condition.column + " " + condition.operator + " " + condition.literal,
+                        condition.literalSpan));
+            }
+        }
     }
 }
